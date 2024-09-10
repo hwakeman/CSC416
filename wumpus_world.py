@@ -16,14 +16,38 @@ class World:
         Represent the entities in the world
         - Maybe 2d array to represent the grid.
         """
-        pass
+        self.facts = set()
 
     def ask(self, sentence):
         """
         Return whether the given sentence input is true in the World.
         For example, we want to be able to ask, W[1,1]? Then return False if no wumpus.
         """
-        pass
+        if isinstance(sentence, str):
+            return sentence in self.facts # states of the world we've gathered
+        
+        operator, *operands = sentence
+
+        if operator == 'NOT':
+            return not self.ask(operands[0])
+        
+        elif operator == 'AND':
+            return all(self.ask(op) for op in operands)
+        
+        elif operator == 'OR':
+            return any(self.ask(op) for op in operands)
+        
+        elif operator == 'IMPLIES':
+            return not self.ask(operands[0]) or self.ask(operands[1])
+        
+        elif operator == 'IFF':
+            return self.ask(operands[0]) == self.ask(operands[1])
+
+    def tell(self, sentence):
+        """
+        Give the world a sentence and tell it that this sentence is true.
+        """
+        self.facts.add(sentence)
 
 class Player:
     """
@@ -35,15 +59,71 @@ class Player:
     def __init__(self, kb):
         self.kb = kb
     
-    def make_inference(self):
+    def make_inferences(self, query):
         """
         Given the Player's knowledge base, determine whether the given query is true.
         """
-        return False
+        facts, implications, bidirectionals = self._transform_kb()
+
+        # set up a flag that tells us we need to derive new propositions
+        world = World()
+
+        # add the base facts to the world
+        for fact in facts:
+            world.tell(fact)
+
+        more_to_derive = True
+        while more_to_derive:
+            more_to_derive = False
+            for premise, conclusion in implications:
+                if world.ask(premise) and not world.ask(conclusion):
+                    world.tell(conclusion)
+                    more_to_derive = True
+
+            for a,b in bidirectionals:
+                if world.ask(a) and not world.ask(b):
+                    world.tell(b)
+                    more_to_derive = True
+                
+                if world.ask(b) and not world.ask(a):
+                    world.tell(a)
+                    more_to_derive = True
+
+        return world.ask(query)
+    
+    def _transform_kb(self):
+        """Transform the knowledge to seperate its sentences into facts,
+        implications, and bidirectionals
+        """
+
+        facts = set()
+        implications = []
+        bidirectionals = []
+
+        for sentence in self.kb:
+            if isinstance(sentence, str):
+                # singleton strings represent simple facts
+                facts.add(sentence)
+                continue
+
+            if isinstance(sentence, tuple):
+                connective = sentence[0]
+                if connective == 'IMPLIES':
+                    premise, conclusion = sentence[1:]
+                    implications.append((premise, conclusion))
+                elif connective == 'IFF':
+                    a, b = sentence[1:]
+                    bidirectionals.append((a,b))
+                elif connective in ['NOT', 'OR', 'AND']:
+                    facts.add(sentence)
+        
+        return facts, implications, bidirectionals
 
 if __name__ == '__main__':
     # the initial knowledge base for the player
     initial_kb = [
+        'A',
+        ('IMPLIES', 'A', 'B'),
         ('NOT', 'P11'),
         ('NOT', 'W11'),
         ('NOT', 'B11'),
@@ -51,7 +131,8 @@ if __name__ == '__main__':
         ('IFF', 'B11', ('OR', 'P12', 'P21'))
     ]
     # our question - is there a pit in [2,1] (so that we can move there)
-    query = 'P21' # we expect the answer to be False or ('NOT', 'P21') to be true
+    query = 'A' # we expect the answer to be False or ('NOT', 'P21') to be true
     # kb = {"1.1": [not p, not w, not b, not s]}
     player = Player(kb=initial_kb)
-    player.make_inference(query) # -> either True or False
+    print('This is the latest version')
+    print(player.make_inferences(query)) # -> either True or False
