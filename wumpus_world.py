@@ -126,9 +126,7 @@ class Player:
         """
         pass
 
-
-
-    def resolve():
+    def resolve(self, cnf_1, cnf_2):
         """
         Takes a pair of CNFs and returns a list of resolved CNFs.
         """
