@@ -53,7 +53,6 @@ class Player:
     """
     The Player in the Wumpus World.
     The Player should be able to (1) make inference
-
     """
 
     def __init__(self, kb):
@@ -92,7 +91,8 @@ class Player:
         return world.ask(query)
     
     def _transform_kb(self):
-        """Transform the knowledge to seperate its sentences into facts,
+        """
+        Transform the knowledge to seperate its sentences into facts,
         implications, and bidirectionals
         """
 
@@ -119,20 +119,57 @@ class Player:
         
         return facts, implications, bidirectionals
 
+    def inference_by_resolution(self, query):
+        """
+        This will be the main method that you will call to
+        perform inference by resolution.
+        """
+        pass
+
+
+
+    def resolve():
+        """
+        Takes a pair of CNFs and returns a list of resolved CNFs.
+        """
+        pass
+
+    def sentence_to_cnf(self, sentence):
+        """
+        Converts a propositional logic sentence into CNF using a recursive approach.
+        """
+        if isinstance(sentence, str) or (sentence[0] not in {'IMPLIES', 'IFF'}):
+            return sentence
+
+        sentence1 = self.sentence_to_cnf(sentence[1]) if isinstance(sentence[1], tuple) else sentence[1]
+        sentence2 = self.sentence_to_cnf(sentence[2]) if isinstance(sentence[2], tuple) else sentence[2]
+
+        if sentence[0] == 'IFF':
+            return ('AND', ('OR', ('NOT', sentence1), sentence2), ('OR', ('NOT', sentence2), sentence1))
+
+        if sentence[0] == 'IMPLIES':
+            return ('OR', ('NOT', sentence1), sentence2)
+
+        return (sentence[0], sentence1, sentence2)
+
 if __name__ == '__main__':
-    # the initial knowledge base for the player
     initial_kb = [
-        'A',
-        ('IMPLIES', 'A', 'B'),
-        ('NOT', 'P11'),
-        ('NOT', 'W11'),
-        ('NOT', 'B11'),
-        ('NOT', 'S11'),
+        'P',
+        ('IMPLIES', 'P', 'Q'),
+    ]
+
+    initial_kb_2 = [
+        ('NOT', 'B11'), 
         ('IFF', 'B11', ('OR', 'P12', 'P21'))
     ]
-    # our question - is there a pit in [2,1] (so that we can move there)
-    query = 'A' # we expect the answer to be False or ('NOT', 'P21') to be true
-    # kb = {"1.1": [not p, not w, not b, not s]}
+
     player = Player(kb=initial_kb)
-    print('This is the latest version')
-    print(player.make_inferences(query)) # -> either True or False
+    player_2 = Player(kb=initial_kb_2)
+
+    query = 'Q'
+    query_2 = ('NOT', 'Q')
+    query_3 = 'P21'
+
+    print("Q: " + player.inference_by_resolution(query))
+    print("Not Q: " + player.inference_by_resolution(query_2))
+    print("P21: " + player_2.inference_by_resolution(query_3))
