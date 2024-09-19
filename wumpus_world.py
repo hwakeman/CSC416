@@ -6,6 +6,8 @@ and perform logic inference.
 
 """
 
+import time
+
 class World:
     """
     The Wumpus World.
@@ -95,7 +97,6 @@ class Player:
         Transform the knowledge to seperate its sentences into facts,
         implications, and bidirectionals
         """
-
         facts = set()
         implications = []
         bidirectionals = []
@@ -118,37 +119,133 @@ class Player:
                     facts.add(sentence)
         
         return facts, implications, bidirectionals
-
+    
     def inference_by_resolution(self, query):
         """
         This will be the main method that you will call to
         perform inference by resolution.
         """
-        pass
+        # CNF The kb and add the negated query to it
+        kb_with_negated_query = [self.sentence_to_cnf(i) for i in self.kb]
+        kb_with_negated_query.append(('NOT', self.sentence_to_cnf(query)))
+        
+        while True:
+            # Comparing each clause with every other clause in the kb
+            for i in range(len(kb_with_negated_query) - 1):
+                for j in range(i + 1, len(kb_with_negated_query)):
+                    resolved = self.resolve(kb_with_negated_query[i], kb_with_negated_query[j])
 
-    def resolve(self, cnf_1, cnf_2):
-        """
-        Takes a pair of CNFs and returns a list of resolved CNFs.
-        """
-        pass
+                    # Check if this is the last possible pair of clauses, if it is we return True when the kb contradicts itself and False when it doesn't
+                    if set(resolved).issubset(set(kb_with_negated_query)) and i + 2 == len(kb_with_negated_query) and j + 1 == len(kb_with_negated_query):
+                        if query in kb_with_negated_query and ('NOT', query) in kb_with_negated_query:
+                            return True
+                        else:
+                            return False
+                        
+                    # If this is not the last possible pair of clauses, simply add the new clause to the kb if it isn't already
+                    else:
+                        for clause in resolved:
+                            if clause not in kb_with_negated_query:
+                                kb_with_negated_query.append(clause)
 
+    def resolve(self, clause_1, clause_2):
+        """
+        Takes a pair of CNFs and returns a list of resolved CNFs. 
+        """
+        def is_complementary(lit1, lit2):
+            """
+            Simple helper function that determines if two literals are complementary
+            """
+            if isinstance(lit1, tuple) and lit1[0] == 'NOT' and lit1[1] == lit2:
+                return True
+            
+            if isinstance(lit2, tuple) and lit2[0] == 'NOT' and lit2[1] == lit1:
+                return True
+                
+            return False
+
+        def get_literals(clause):
+            """
+            Helper function to take a clause and extract the literals from it
+            """
+            if isinstance(clause, tuple) and clause[0] == 'OR':
+                literals = []
+                for part in clause[1:]:
+                    literals.extend(get_literals(part))
+                return literals
+            
+            return [clause]
+
+        def remove_literal(clause, literal):
+            """
+            Helper function to remove a specific literal from a clause.
+            """
+            if isinstance(clause, tuple) and clause[0] == 'OR':
+                # Takes all of the clauses in the tuple that aren't the literal to be removed and puts them in a new tuple
+                remaining_literals = tuple(lit for lit in clause[1:] if lit != literal)
+                return ('OR', *remaining_literals) if remaining_literals else None
+            
+            return None if clause == literal else clause
+
+        literals_1 = get_literals(clause_1)
+        literals_2 = get_literals(clause_2)
+
+        resolved_clauses = []
+
+        for literal_1 in literals_1:
+            for literal_2 in literals_2:
+                # If there are complementary literals they must be removed
+                if is_complementary(literal_1, literal_2):
+                    new_clause_1 = remove_literal(clause_1, literal_1)
+                    new_clause_2 = remove_literal(clause_2, literal_2)
+
+                    # If both clauses still contain literals after removal we must combine the remaining literals with 'OR'
+                    if new_clause_1 and new_clause_2:
+                        resolved = ('OR', get_literals(new_clause_1), get_literals(new_clause_2))
+
+                    # If only clause_1 has remaining literals, use it as the resolved clause
+                    elif new_clause_1:
+                        resolved = new_clause_1
+
+                    # If only clause_2 has remaining literals, use it as the resolved clause
+                    elif new_clause_2:
+                        resolved = new_clause_2
+
+                    # If both clauses are empty after removing complementary literals, return an empty clause
+                    else:
+                        resolved = None
+
+                    # If the resolved clause has only one literal, we must remove the 'OR' and keep the single literal
+                    if isinstance(resolved, tuple) and resolved[0] == 'OR' and len(resolved) == 2:
+                        resolved = resolved[1] 
+
+                    # Add the resolved clause to the list of resolved clauses, if it exists
+                    if resolved:
+                        resolved_clauses.append(resolved)
+        
+        return resolved_clauses
+        
     def sentence_to_cnf(self, sentence):
         """
         Converts a propositional logic sentence into CNF using a recursive approach.
         """
+        # If the sentence is a literal or does not have 'IMPLIES' or 'IFF' in it, the sentence is already in CNF
         if isinstance(sentence, str) or (sentence[0] not in {'IMPLIES', 'IFF'}):
             return sentence
 
-        sentence1 = self.sentence_to_cnf(sentence[1]) if isinstance(sentence[1], tuple) else sentence[1]
-        sentence2 = self.sentence_to_cnf(sentence[2]) if isinstance(sentence[2], tuple) else sentence[2]
+        # We need to recursively call the function on any nested tuples
+        sentence_1 = self.sentence_to_cnf(sentence[1]) if isinstance(sentence[1], tuple) else sentence[1]
+        sentence_2 = self.sentence_to_cnf(sentence[2]) if isinstance(sentence[2], tuple) else sentence[2]
 
+        # P⇔Q is just (￢P⋁Q) ⋀ (￢Q⋁P)!
         if sentence[0] == 'IFF':
-            return ('AND', ('OR', ('NOT', sentence1), sentence2), ('OR', ('NOT', sentence2), sentence1))
+            return ('AND', ('OR', ('NOT', sentence_1), sentence_2), ('OR', ('NOT', sentence_2), sentence_1))
 
+        # P⇒Q is just ￢P⋁Q!
         if sentence[0] == 'IMPLIES':
-            return ('OR', ('NOT', sentence1), sentence2)
+            return ('OR', ('NOT', sentence_1), sentence_2)
 
-        return (sentence[0], sentence1, sentence2)
+        return (sentence[0], sentence_1, sentence_2)
 
 if __name__ == '__main__':
     initial_kb = [
@@ -161,6 +258,8 @@ if __name__ == '__main__':
         ('IFF', 'B11', ('OR', 'P12', 'P21'))
     ]
 
+    # Minimal tests to pass
+
     player = Player(kb=initial_kb)
     player_2 = Player(kb=initial_kb_2)
 
@@ -168,6 +267,6 @@ if __name__ == '__main__':
     query_2 = ('NOT', 'Q')
     query_3 = 'P21'
 
-    print("Q: " + player.inference_by_resolution(query))
-    print("Not Q: " + player.inference_by_resolution(query_2))
-    print("P21: " + player_2.inference_by_resolution(query_3))
+    print("Q: " + str(player.inference_by_resolution(query)))
+    print("Not Q: " + str(player.inference_by_resolution(query_2)))
+    print("P21: " + str(player_2.inference_by_resolution(query_3)))
