@@ -6,8 +6,6 @@ and perform logic inference.
 
 """
 
-import time
-
 class World:
     """
     The Wumpus World.
