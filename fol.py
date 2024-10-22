@@ -43,15 +43,16 @@ def unify(sentence1, sentence2):
     return variable_substitutions
 
 
-def inference_by_resolution(kb, query):
-    pass
+def resolve(clause_1, clause_2):
+   pass
 
-def resolve(clause1, clause2):
-    pass
+def inference_by_resolution(kb, query):
+    negated_query = ['¬' + query] if query[0] != '¬' else [query[1:]]
+    kb.append(negated_query)
 
 # print(unify('Parent(x, y)','Parent(John,Mary)'))
 # print(unify('Loves(father(x), x)','Loves(father(John), John)',))
 # print(unify('Parent(x, x)','Parent(John,Mary)'))
 
 kb = [['¬King(x)', '¬Greedy(x)', 'Evil(x)'], ['King(John)'], ['Greedy(x)']]
-print(inference_by_resolution(kb, 'Evil(John)'))
+print("Truth Value: " + str(inference_by_resolution(kb, 'Evil(John)')))
