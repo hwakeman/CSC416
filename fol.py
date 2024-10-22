@@ -51,6 +51,7 @@ def inference_by_resolution(kb, query):
     
     while True:
         new_clauses = []
+        
         # Compare each kb clause with every other kb clause
         for i in range(len(kb_with_negated_query) - 1):
             for j in range(i + 1, len(kb_with_negated_query)):
